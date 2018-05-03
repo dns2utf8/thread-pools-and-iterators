@@ -1,0 +1,340 @@
+\documentclass[aspectratio=1610,t]{beamer}
+
+% Colors
+\usepackage{color}
+\definecolor{mainorange}{HTML}{EC811B}
+\definecolor{lightgrey}{HTML}{888888}
+
+% Syntax highlighting
+\usepackage{minted}
+\usepackage{alltt}
+\newcommand\hi[1]{{\color{mainorange} \textbf{#1}}}
+
+% Theme
+\usetheme[%
+	subsectionpage=progressbar,
+	numbering=fraction,
+	progressbar=foot,
+]{metropolis}
+
+% Customization
+\setbeamertemplate{section in toc}[sections numbered]
+\setbeamerfont{title}{size=\fontsize{30}{30}}
+\setbeamerfont{block title}{size=\large}
+\newcommand\sep{\textcolor{lightgrey}{\rule{\linewidth}{0.05mm}}}
+
+% Meta
+\title{Thread pools and iterators}
+\date{\today}
+\author{Stefan Schindler (@dns2utf8)}
+\institute{Rust Zürichsee, Schweiz CH}
+
+\begin{document}
+
+\pgfdeclareimage[width=\paperwidth]{bg}{background-light.pdf}
+\pgfdeclareimage[width=\paperwidth]{bgdark}{background-dark.pdf}
+
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\maketitle
+
+% ----------------------------------------------------------------- %
+
+\begin{frame}[plain,noframenumbering]
+	\frametitle{Inhalt}
+	\setcounter{tocdepth}{1}
+	\tableofcontents
+\end{frame}
+
+% ----------------------------------------------------------------- %
+
+\usebackgroundtemplate{\pgfuseimage{bg}}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{About}
+}
+
+\begin{frame}[fragile]{Timetable}
+  \begin{itemize}
+    \item now => Talk
+    \item 20:00 => Questions
+    \item 20:10 => Happy hacking
+    \item 21:00 => Closing
+    \item tomorrow => ???
+    \item the day after => Parallelize the World!
+  \end{itemize}
+\end{frame}
+% timetable
+
+
+\begin{frame}[fragile]{About:me}
+Hi my name is Stefan and I do Computer Science.
+
+I organze
+\begin{itemize}
+  \item RustFest.eu Paris: Tentatively May 26th \& 27th (but don't book yet!) \\ with impldays (around the weekend)
+  \item Meetups in and around Zürich
+  \item Illuminox.ch (Swiss alps in July 2018)
+\end{itemize}
+
+Some of my side projects
+\begin{itemize}
+  \item rust threadpool
+  \item Son of Grid Engine (SGE) interface
+  \item run your own infrastructure - DNS, VPN, Web, ...
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]{What we will learn tonight}
+
+%During the talk
+\begin{itemize}
+ \item The different modes of execution
+ \item Single vs. Multi Threading
+ \item How to synchronize pools
+ \item How to translate linear code into parallel code
+\end{itemize}
+
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Modes of execution}
+}
+
+\begin{frame}[fragile]{Programming is ...}
+... about solving problems
+
+Examples:
+\begin{itemize}
+  \item Copy data
+  \item Enhance audio
+  \item Distribute messages
+  \item Store data
+  \item Prepare thumbnails
+\end{itemize}
+
+Key is understanding the problem
+\end{frame}
+
+\begin{frame}[fragile]{Single thread}
+How to do more than one thing at the time?
+
+\begin{itemize}
+  \item Linear if tasks are short enough
+  \item Polling
+  \item Event driven (select/epoll)
+  \item Hardware SIMD
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Multi Threading}
+Let's add another level of abstraction
+\begin{itemize}
+  \item spawn / join: handle lists of JoinHandles
+  \item pools \begin{itemize}
+      \item job queue (the one we look at)
+      \item Workstealing (rayon)
+      \item futures
+    \end{itemize}
+\end{itemize}
+
+New problems: synchronization and communication
+
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Implementation}
+}
+
+\begin{frame}[fragile]{Send and Sync}
+Rusts "pick three" (safety, speed, concurrency)
+
+\begin{verbatim}
+Trait std::marker::Send
+\end{verbatim}
+Types that can be transferred across thread boundaries.
+
+\begin{verbatim}
+Trait std::marker::Sync
+\end{verbatim}
+Types for which it is safe to share references between threads.
+
+\end{frame}
+
+\begin{frame}[fragile]{Crates}
+Let's add another level of abstraction
+\begin{itemize}
+  \item spawn / join: handle lists of JoinHandles
+  \item pools \begin{itemize}
+      \item job queue (the one we look at)
+      \item Workstealing (rayon)
+      \item futures
+    \end{itemize}
+\end{itemize}
+
+New problems: synchronization and communication
+
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Examples}
+}
+\begin{frame}[fragile]{Channel}
+\begin{minted}{rust}
+use threadpool::ThreadPool; use std::sync::mpsc::channel;
+
+let n_workers = 4; let n_jobs = 8;
+let pool = ThreadPool::new(n_workers);
+
+let (tx, rx) = channel();
+for _ in 0..n_jobs {
+    let tx = tx.clone();
+    pool.execute(move || {
+        tx.send(1).expect("channel will be there");
+    });
+}
+drop(tx);
+
+assert_eq!(rx.iter().take(n_jobs).fold(0, |a, b| a + b), 8);
+\end{minted}
+\end{frame}
+
+
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Code to iterators}
+}
+\begin{frame}[fragile]{Collect from channnel}
+v\_len stores how many elements
+\begin{minted}{rust}
+  for _ in 0..v_len {
+    if let Some(pi) = rx.recv().unwrap() {
+      g.pictures.push( pi );
+    } else {
+      // Abort because of some error in the thread
+      return;
+    }
+  }
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Collect from channnel}
+\begin{minted}{rust}
+  for pi in rx.iter() {
+    if let Some(pi) = pi {
+      g.pictures.push( pi );
+    } else {
+      // Abort because of some error in the thread
+      return;
+    }
+  }
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Collect from channnel}
+\begin{minted}{rust}
+  rx.iter().for_each(|pi| {
+    if let Some(pi) = pi {
+      g.pictures.push( pi );
+    } else {
+      // Abort because of some error in the thread
+      return;
+    }
+  });
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Collect from channnel}
+\begin{minted}{rust}
+  g.pictures = rx.iter().map(|pi| {
+    if let Some(pi) = pi {
+      Ok( pi )
+    } else {
+      // Abort because of some error in the thread
+      Err( () )
+    }
+  }).collect::<Result<Vec<PictureInfo>, ()>>().unwrap();
+\end{minted}
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Some pitfalls}
+}
+\begin{frame}[fragile]{TcpStream with SGE array jobs}
+Question: How many connections will each client open
+\begin{minted}{rust}
+peer_streams = map.values()
+    .filter(|s| s.is_some())
+    .map(|s| s.unwrap())
+    .map(|(addr, data_port)|
+        TcpStream::connect(
+            SocketAddr::new(addr, data_port)))
+    .filter(|s| s.is_ok())
+    .map(|s| s.unwrap())
+    .collect();
+\end{minted}
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Questions (max 10min)}
+}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Workshop time}
+}
+
+
+
+%\begin{frame}[fragile]{Warum noch eine Sprache?}
+%  \begin{itemize}
+%    \item Es ist schwer sicheren und korrekten Code zu schreiben.
+%    \item Es ist schwierig parallelen Code zu schreiben.
+%  \end{itemize}
+%
+%\begin{minted}{C}
+%char *pi = "3.1415926f32";
+%while(1) {
+%    printf("wie vielte Stelle? ");  err = scanf("%d", &stelle);
+%
+%    if (err == 0 || errno != 0) {
+%      printf("invalid entry\n");    while (getchar() != '\n');
+%      continue;
+%    }
+%
+%    printf("Eingabe: %d\n", stelle);
+%    printf("Gewünschte Stelle: '%c'\n", pi[stelle]);
+%}
+%\end{minted}
+%\end{frame}
+
+
+
+
+
+% ----------------------------------------------------------------- %
+
+{
+\setbeamertemplate{footline}{}
+\pgfdeclareimage[width=\paperwidth]{bg}{background-inverted.pdf}
+\usebackgroundtemplate{\pgfuseimage{bg}}
+\begin{frame}[standout]
+	\begin{centering}
+	{\Huge Thank you for your attention!}\\
+	{\normalsize Stefan Schindler @dns2utf8 }\\
+  {\normalsize Happy hacking! Please ask questions! }\\
+	{\footnotesize Slides: \url{https://github.com/dns2utf8/thread-pools-and-iterators}}\\
+	%{\footnotesize Examples: \url{https://github.com/coredump-ch/intro-to-rust/tree/master/examples}}\\
+	\end{centering}
+\end{frame}
+}
+
+\end{document}
