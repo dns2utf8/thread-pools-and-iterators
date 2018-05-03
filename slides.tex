@@ -51,33 +51,33 @@
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{About}
+\section{Über}
 }
 
-\begin{frame}[fragile]{Timetable}
-  \begin{itemize}
-    \item now => Talk
-    \item 20:00 => Questions
-    \item 20:10 => Happy hacking
-    \item 21:00 => Closing
-    \item tomorrow => ???
-    \item the day after => Parallelize the World!
-  \end{itemize}
-\end{frame}
+%\begin{frame}[fragile]{Timetable}
+%  \begin{itemize}
+%    \item now => Talk
+%    \item 20:00 => Questions
+%    \item 20:10 => Happy hacking
+%    \item 21:00 => Closing
+%    \item tomorrow => ???
+%    \item the day after => Parallelize the World!
+%  \end{itemize}
+%\end{frame}
 % timetable
 
 
 \begin{frame}[fragile]{About:me}
-Hi my name is Stefan and I do Computer Science.
+Hallo mein Name ist Stefan und I arbeite an und mit Computern.
 
-I organze
+Ich organisier
 \begin{itemize}
-  \item RustFest.eu Paris: Tentatively May 26th \& 27th (but don't book yet!) \\ with impldays (around the weekend)
-  \item Meetups in and around Zürich
-  \item Illuminox.ch (Swiss alps in July 2018)
+  \item RustFest.eu Paris: 26. \& 27. May mit "impl days" am 28. \& 29. May
+  \item Meetups in und um Zürich
+  \item Illuminox.ch (in den Schweizer Alpen Juli 2018)
 \end{itemize}
 
-Some of my side projects
+Ein paar von meinen Nebenprojekten
 \begin{itemize}
   \item rust threadpool
   \item Son of Grid Engine (SGE) interface
@@ -87,16 +87,98 @@ Some of my side projects
 
 
 
-\begin{frame}[fragile]{What we will learn tonight}
+\begin{frame}[fragile]{Was wir heute lernen werden}
 
-%During the talk
 \begin{itemize}
- \item The different modes of execution
+ \item Schleifen
+ \item Iteratoren
+ \item Verschiedene Ausführungsmodi
  \item Single vs. Multi Threading
- \item How to synchronize pools
- \item How to translate linear code into parallel code
+ \item Wie man Pools synchronisiert
+ \item Wie man linearen Code in parallelen überführt
 \end{itemize}
 
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Schleifen \& Iteratoren}
+}
+
+\begin{frame}[fragile]{Schleifen 0 - Was bisher geschah}
+\begin{minted}{C}
+const char *data[] = { "Peter Arbeitsloser", ... };
+
+  const int length = sizeof(data) / sizeof(data[0]);
+  int index = 0;
+kopf:
+  if (!(index < length)) {
+    goto ende;
+  }
+  const char *name = data[index];
+  printf("%i: %s\n", index, name);
+  index += 1;
+  goto kopf;
+ende:
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Schleifen 1 - Was verbessert wurde}
+\begin{minted}{C}
+const char *data[] = {
+    "Peter Arbeitsloser",
+    "Sandra Systemadministratorin",
+    "Peter Koch",
+};
+
+  const int length = sizeof(data) / sizeof(data[0]);
+
+  for (int index = 0; index < length; index++) {
+    const char *name = data[index];
+    printf("%i: %s\n", index, name);
+  }
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Schleifen 2}
+Die Ausgangslage der folgenden Beispiele:
+
+\begin{minted}{rust}
+#[allow(non_upper_case_globals)]
+const data: [&str; 3] = [
+    "Peter Arbeitsloser",
+    "Sandra Systemadministratorin",
+    "Peter Koch",
+];
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Schleifen 3 - While}
+\begin{minted}{rust}
+    let mut index = 0;
+    let length = data.len();
+    while index < length {
+        println!("{}: {}", index, data[index]);
+        index += 1
+    }
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Schleifen 4 - foreach}
+\begin{minted}{rust}
+    for name in &data {
+        println!("{}", name);
+    }
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Iteratoren 0}
+\begin{minted}{rust}
+    let iterator = data.iter();
+    iterator.for_each(|name| {
+        println!("{}", name);
+    });
+\end{minted}
 \end{frame}
 
 {
@@ -284,13 +366,13 @@ peer_streams = map.values()
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Questions (max 10min)}
+\section{Fragen}
 }
 
-{
-\usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Workshop time}
-}
+%{
+%\usebackgroundtemplate{\pgfuseimage{bgdark}}
+%\section{Workshop time}
+%}
 
 
 
@@ -328,10 +410,10 @@ peer_streams = map.values()
 \usebackgroundtemplate{\pgfuseimage{bg}}
 \begin{frame}[standout]
 	\begin{centering}
-	{\Huge Thank you for your attention!}\\
+	{\Huge Danke für eure Aufmerksamkeit!}\\
 	{\normalsize Stefan Schindler @dns2utf8 }\\
-  {\normalsize Happy hacking! Please ask questions! }\\
-	{\footnotesize Slides: \url{https://github.com/dns2utf8/thread-pools-and-iterators}}\\
+  {\normalsize Happy hacking! Bitte fragt Fragen! }\\
+	{\footnotesize Folien \& Beispiele: \url{https://github.com/dns2utf8/thread-pools-and-iterators}}\\
 	%{\footnotesize Examples: \url{https://github.com/coredump-ch/intro-to-rust/tree/master/examples}}\\
 	\end{centering}
 \end{frame}
