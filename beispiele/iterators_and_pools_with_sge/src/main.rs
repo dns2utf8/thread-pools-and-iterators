@@ -1,3 +1,4 @@
+
 #[allow(non_upper_case_globals)]
 const data: [&str; 3] = [
     "Peter Arbeitsloser",
@@ -44,6 +45,36 @@ fn iterator() {
     });
 }
 
+fn stacked_iterator() {
+    title("stacked_iterator");
+
+    let processed = data
+        .iter()
+        .map(|name| {
+            let mut split = name.split(" ");
+
+            let (vorname, nachname) = (split.next(), split.next());
+
+            if vorname.is_none() || nachname.is_none() {
+                return Err("Konnte namen nicht parsen: Zu wenige Teile")
+            }
+
+            Ok(Person {
+                vorname: vorname.unwrap().into(),
+                nachname: nachname.unwrap().into(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>();
+
+    println!("processed: {:#?}", processed);
+}
+
+#[derive(Debug)]
+struct Person {
+    vorname: String,
+    nachname: String,
+}
+
 fn title(t: &str) {
     println!("\n :: {} ::", t);
 }
@@ -52,4 +83,5 @@ fn main() {
     loop_while();
     foreach();
     iterator();
+    stacked_iterator();
 }

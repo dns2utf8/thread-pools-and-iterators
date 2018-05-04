@@ -102,7 +102,7 @@ Ein paar von meinen Nebenprojekten
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Schleifen \& Iteratoren}
+\section{Schleifen}
 }
 
 \begin{frame}[fragile]{Schleifen 0 - Was bisher geschah}
@@ -172,6 +172,12 @@ const data: [&str; 3] = [
 \end{minted}
 \end{frame}
 
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Iteratoren}
+}
+
 \begin{frame}[fragile]{Iteratoren 0}
 \begin{minted}{rust}
     let iterator = data.iter();
@@ -179,51 +185,107 @@ const data: [&str; 3] = [
         println!("{}", name);
     });
 \end{minted}
+
+\begin{itemize}
+ \item Warum?
+ \item Vorteile für
+    \begin{itemize}
+     \item Programmierer
+     \item Compiler
+    \end{itemize}
+\end{itemize}
 \end{frame}
+
+
+
+\begin{frame}[fragile]{Iteratoren 1 - Parsen}
+\begin{minted}{rust}
+struct Person { vorname: String, nachname: String, }
+let processed = data
+        .iter()
+        .map(|name| {
+            let mut split = name.split(" ");
+let (vorname, nachname) = (split.next(), split.next());
+if vorname.is_none() || nachname.is_none() {
+    return Err("Konnte namen nicht parsen: Zu wenige Teile")
+}
+            Ok(Person {
+                vorname: vorname.unwrap().into(),
+                nachname: nachname.unwrap().into(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>();
+\end{minted}
+\end{frame}
+
+
+
+\begin{frame}[fragile]{Iteratoren 2 - Parsen Ergebnis}
+\begin{minted}{rust}
+processed: Ok(
+    [
+        Person {
+            vorname: "Peter",
+            nachname: "Arbeitsloser"
+        },
+        Person {
+            vorname: "Sandra",
+            nachname: "Systemadministratorin"
+        },
+        Person {
+            vorname: "Peter",
+            nachname: "Koch"
+        }
+    ]
+)
+\end{minted}
+\end{frame}
+
+
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Modes of execution}
+\section{Verschiedene Ausführungsmodi}
 }
 
-\begin{frame}[fragile]{Programming is ...}
-... about solving problems
+\begin{frame}[fragile]{Programmieren ist ...}
+... ein Weg Probleme zu lösen
 
-Examples:
+Beispiele:
 \begin{itemize}
-  \item Copy data
-  \item Enhance audio
-  \item Distribute messages
-  \item Store data
-  \item Prepare thumbnails
+  \item Daten kopieren
+  \item Audio verbessern
+  \item Nachrichten verteilen
+  \item Daten speichern
+  \item Bilder transformieren
 \end{itemize}
 
-Key is understanding the problem
+Der Schlüssel ist das Problem zu verstehen
 \end{frame}
 
-\begin{frame}[fragile]{Single thread}
-How to do more than one thing at the time?
+\begin{frame}[fragile]{Single thread - Lineare Ausführung}
+Wie erledigen wir mehr als eine Aufgabe gleichzeitig?
 
 \begin{itemize}
-  \item Linear if tasks are short enough
+  \item Linear wenn die Aufgaben kurz genug sind
   \item Polling
-  \item Event driven (select/epoll)
+  \item Event getrieben (select/epoll)
   \item Hardware SIMD
 \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Multi Threading}
+\begin{frame}[fragile]{Multi Threading - SMP}
 Let's add another level of abstraction
 \begin{itemize}
-  \item spawn / join: handle lists of JoinHandles
-  \item pools \begin{itemize}
-      \item job queue (the one we look at)
+  \item spawn / join: verwalte Listen von JoinHandles
+  \item Pools \begin{itemize}
+      \item Job Queue (heute das Thema)
       \item Workstealing (rayon)
-      \item futures
+      \item futures (async / await)
     \end{itemize}
 \end{itemize}
 
-New problems: synchronization and communication
+Neue Probleme: Synchronisation und Kommunikation
 
 \end{frame}
 
@@ -235,38 +297,35 @@ New problems: synchronization and communication
 \begin{frame}[fragile]{Send and Sync}
 Rusts "pick three" (safety, speed, concurrency)
 
-\begin{verbatim}
+\begin{minted}{rust}
 Trait std::marker::Send
-\end{verbatim}
-Types that can be transferred across thread boundaries.
+\end{minted}
+Typeen können über Thread-Grenzen transferiert werden.
 
-\begin{verbatim}
+\begin{minted}{rust}
 Trait std::marker::Sync
-\end{verbatim}
-Types for which it is safe to share references between threads.
+\end{minted}
+Typeen können sicher von mehreren Threads referenziert und aufgerufen werden.
 
 \end{frame}
 
 \begin{frame}[fragile]{Crates}
 Let's add another level of abstraction
 \begin{itemize}
-  \item spawn / join: handle lists of JoinHandles
+  \item std::thread::{spawn, join}
   \item pools \begin{itemize}
-      \item job queue (the one we look at)
-      \item Workstealing (rayon)
-      \item futures
+      \item ThreadPool (Job Queue)
+      \item FuturesThreadPool (Workstealing)
     \end{itemize}
+  \item rayon (Workstealing)
+  \item timely dataflow (distributed actor model)
 \end{itemize}
 
-New problems: synchronization and communication
+Neue Probleme: Synchronisation, Kommunikation und Besitzrecht
 
 \end{frame}
 
-{
-\usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Examples}
-}
-\begin{frame}[fragile]{Channel}
+\begin{frame}[fragile]{Channel Beispiel}
 \begin{minted}{rust}
 use threadpool::ThreadPool; use std::sync::mpsc::channel;
 
@@ -286,71 +345,145 @@ assert_eq!(rx.iter().take(n_jobs).fold(0, |a, b| a + b), 8);
 \end{minted}
 \end{frame}
 
+\begin{frame}[fragile]{Channel Kaskade Beispiel}
+\begin{minted}{rust}
+let (tx, mut rx) = channel();
+tx.send( (0, 0) ).is_ok();
+for _ in 0..TEST_TASKS {
+    let rx_pre = rx;
+    let (tx_chain, rx_chain) = channel();
+    rx = rx_chain;
+
+    pool.execute(move || {
+        let r = pi_approx_random(VERSUCHE as u64
+                                , rand::random::<f64>);
+        let b = rx_pre.recv().unwrap();
+        tx_chain.send( (b.0 + r.0, b.1 + r.1) ).is_ok();
+    });
+}
+println!("chain.pi: {}", format_pi_approx(rx.recv().unwrap()));
+\end{minted}
+\end{frame}
+
 
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Code to iterators}
+\section{Schema: Schleifen zu Iteratoren}
 }
-\begin{frame}[fragile]{Collect from channnel}
-v\_len stores how many elements
+\begin{frame}[fragile]{Collect von Channnel - 0}
+v\_len speichert wie viele Elemente wir erwarten
 \begin{minted}{rust}
+  let mut pictures = vec![];
+
   for _ in 0..v_len {
     if let Some(pi) = rx.recv().unwrap() {
-      g.pictures.push( pi );
+      pictures.push( pi );
     } else {
-      // Abort because of some error in the thread
+      // Abbruch wegen einem Fehler
       return;
     }
   }
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect from channnel}
+\begin{frame}[fragile]{Collect von Channnel - 1}
+Mit foreach brauchen wir die Länge nicht mehr
 \begin{minted}{rust}
+  let mut pictures = vec![];
+
   for pi in rx.iter() {
     if let Some(pi) = pi {
-      g.pictures.push( pi );
+      pictures.push( pi );
     } else {
-      // Abort because of some error in the thread
+      // Abbruch wegen einem Fehler
       return;
     }
   }
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect from channnel}
+\begin{frame}[fragile]{Collect von Channnel - 2}
+Mit for\_each brauchen wir die Länge nicht mehr
 \begin{minted}{rust}
+  let mut pictures = vec![];
+
   rx.iter().for_each(|pi| {
     if let Some(pi) = pi {
-      g.pictures.push( pi );
+      pictures.push( pi );
     } else {
-      // Abort because of some error in the thread
+      // Abbruch wegen einem Fehler
       return;
     }
   });
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect from channnel}
+\begin{frame}[fragile]{Collect von Channnel - 3}
 \begin{minted}{rust}
-  g.pictures = rx.iter().map(|pi| {
+  let pictures = rx.iter().map(|pi| {
     if let Some(pi) = pi {
       Ok( pi )
     } else {
-      // Abort because of some error in the thread
+      // Abbruch wegen einem Fehler
       Err( () )
     }
   }).collect::<Result<Vec<PictureInfo>, ()>>().unwrap();
 \end{minted}
 \end{frame}
 
+\begin{frame}[fragile]{Collect von Channnel - 4}
+Parallelisiert mit rayon
+\begin{minted}{rust}
+  let pictures = rx.par_iter().map(|pi| {
+    if let Some(pi) = pi {
+      Ok( pi )
+    } else {
+      // Abbruch wegen einem Fehler
+      Err( () )
+    }
+  }).collect::<Result<Vec<PictureInfo>, ()>>().unwrap();
+\end{minted}
+\end{frame}
+
+
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Some pitfalls}
+\section{SGE - Son of Grid Engine}
+}
+\begin{frame}[fragile]{SGE Überblick}
+Entwickelt von SUN
+
+Im Einsatz bei diverse Hochschulen, Universitäten, Firmen und öffentlichen Institutionen ua. (ETH, NASA, ...)
+
+Architektur:
+\begin{itemize}
+    \item Clustermanager läuft auf allen Maschinene
+    \item Benutzer Home auf Cluster Nodes gemountet
+    \item Benutzer schickt ein Shell Skript an den Manager
+\end{itemize}
+\includegraphics[width=14cm]{Screenshot_SGE_Call.png}
+\end{frame}
+
+\begin{frame}[fragile]{Master Slaves Konzept}
+Nutzen der Umgebungsvariablen \& des Shared Homes
+
+Datei: print.0.sge\_rs
+\begin{verbatim}
+127.0.0.1 ::1 129.132.67.78 fe80::21e:67ff:fe54:9068|arton01
+\end{verbatim}
+
+To the shell now!
+\end{frame}
+
+{
+\usebackgroundtemplate{\pgfuseimage{bgdark}}
+\section{Einige Fallstricke}
 }
 \begin{frame}[fragile]{TcpStream with SGE array jobs}
-Question: How many connections will each client open
+X Instanzen erhalten Adressinformationen über die anderen Instanzen
+
+Frage: Wie viele Verbindungen wird jede Instanz öffnen?
 \begin{minted}{rust}
 peer_streams = map.values()
     .filter(|s| s.is_some())
