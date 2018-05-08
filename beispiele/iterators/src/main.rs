@@ -55,14 +55,17 @@ fn stacked_iterator() {
 
             let (vorname, nachname) = (split.next(), split.next());
 
-            if vorname.is_none() || nachname.is_none() {
-                return Err("Konnte namen nicht parsen: Zu wenige Teile")
+            match (vorname, nachname) {
+                (Some(vorname), Some(nachname)) => {
+                    Ok(Person {
+                        vorname: vorname.into(),
+                        nachname: nachname.into(),
+                    })
+                }
+                _ => {
+                    Err("Konnte namen nicht parsen: Zu wenige Teile")
+                }
             }
-
-            Ok(Person {
-                vorname: vorname.unwrap().into(),
-                nachname: nachname.unwrap().into(),
-            })
         })
         .collect::<Result<Vec<_>, _>>();
 
