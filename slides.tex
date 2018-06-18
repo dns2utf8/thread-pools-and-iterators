@@ -27,7 +27,7 @@
 \title{Thread pools and iterators}
 \date{\today}
 \author{Stefan Schindler (@dns2utf8)}
-\institute{Rust Zürichsee, Schweiz CH}
+\institute{Rust Zürichsee, Schweiz CH - @Cosin 2018}
 
 \begin{document}
 
@@ -178,6 +178,20 @@ const data: [&str; 3] = [
 \section{Iteratoren}
 }
 
+\begin{frame}[fragile]{Trait Iterator}
+\begin{minted}{rust}
+    pub trait Iterator {
+        type Item;
+        fn next(&mut self) -> Option<Self::Item>;
+    }
+
+    pub enum Option<T> {
+        None,
+        Some(T),
+    }
+\end{minted}
+\end{frame}
+
 \begin{frame}[fragile]{Iteratoren 0}
 \begin{minted}{rust}
     let iterator = data.iter();
@@ -219,8 +233,29 @@ if vorname.is_none() || nachname.is_none() {
 \end{frame}
 
 
+\begin{frame}[fragile]{Iteratoren 2 - Parsen}
+\begin{minted}{rust}
+struct Person { vorname: String, nachname: String, }
+let processed = data.iter()
+        .map(|name| {
+            let mut split = name.split(" ");
+let (vorname, nachname) = (split.next(), split.next());
+match (vorname, nachname) {
+    (Some(vorname), Some(nachname)) => {
+        Ok(Person {
+            vorname: vorname.into(), nachname: nachname.into(),
+        })
+    }
+    _ => { Err("Konnte namen nicht parsen: Zu wenige Teile") }
+}
+        })
+        .collect::<Result<Vec<_>, _>>();
+\end{minted}
+\end{frame}
 
-\begin{frame}[fragile]{Iteratoren 2 - Parsen Ergebnis}
+
+
+\begin{frame}[fragile]{Iteratoren 3 - Parsen Ergebnis}
 \begin{minted}{rust}
 processed: Ok(
     [
@@ -446,56 +481,56 @@ Parallelisiert mit rayon
 \end{minted}
 \end{frame}
 
-
-{
-\usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{SGE - Son of Grid Engine}
-}
-\begin{frame}[fragile]{SGE Überblick}
-Entwickelt von SUN
-
-Im Einsatz bei diverse Hochschulen, Universitäten, Firmen und öffentlichen Institutionen ua. (ETH, NASA, ...)
-
-Architektur:
-\begin{itemize}
-    \item Clustermanager läuft auf allen Maschinene
-    \item Benutzer Home auf Cluster Nodes gemountet
-    \item Benutzer schickt ein Shell Skript an den Manager
-\end{itemize}
-\includegraphics[width=14cm]{Screenshot_SGE_Call.png}
-\end{frame}
-
-\begin{frame}[fragile]{Master Slaves Konzept}
-Nutzen der Umgebungsvariablen \& des Shared Homes
-
-Datei: print.0.sge\_rs
-\begin{verbatim}
-127.0.0.1 ::1 129.132.67.78 fe80::21e:67ff:fe54:9068|arton01
-\end{verbatim}
-
-To the shell now!
-\end{frame}
-
-{
-\usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Einige Fallstricke}
-}
-\begin{frame}[fragile]{TcpStream with SGE array jobs}
-X Instanzen erhalten Adressinformationen über die anderen Instanzen
-
-Frage: Wie viele Verbindungen wird jede Instanz öffnen?
-\begin{minted}{rust}
-peer_streams = map.values()
-    .filter(|s| s.is_some())
-    .map(|s| s.unwrap())
-    .map(|(addr, data_port)|
-        TcpStream::connect(
-            SocketAddr::new(addr, data_port)))
-    .filter(|s| s.is_ok())
-    .map(|s| s.unwrap())
-    .collect();
-\end{minted}
-\end{frame}
+%
+%{
+%\usebackgroundtemplate{\pgfuseimage{bgdark}}
+%\section{SGE - Son of Grid Engine}
+%}
+%\begin{frame}[fragile]{SGE Überblick}
+%Entwickelt von SUN
+%
+%Im Einsatz bei diverse Hochschulen, Universitäten, Firmen und öffentlichen Institutionen ua. (ETH, NASA, ...)
+%
+%Architektur:
+%\begin{itemize}
+%    \item Clustermanager läuft auf allen Maschinene
+%    \item Benutzer Home auf Cluster Nodes gemountet
+%    \item Benutzer schickt ein Shell Skript an den Manager
+%\end{itemize}
+%\includegraphics[width=14cm]{Screenshot_SGE_Call.png}
+%\end{frame}
+%
+%\begin{frame}[fragile]{Master Slaves Konzept}
+%Nutzen der Umgebungsvariablen \& des Shared Homes
+%
+%Datei: print.0.sge\_rs
+%\begin{verbatim}
+%127.0.0.1 ::1 129.132.67.78 fe80::21e:67ff:fe54:9068|arton01
+%\end{verbatim}
+%
+%To the shell now!
+%\end{frame}
+%
+%{
+%\usebackgroundtemplate{\pgfuseimage{bgdark}}
+%\section{Einige Fallstricke}
+%}
+%\begin{frame}[fragile]{TcpStream with SGE array jobs}
+%X Instanzen erhalten Adressinformationen über die anderen Instanzen
+%
+%Frage: Wie viele Verbindungen wird jede Instanz öffnen?
+%\begin{minted}{rust}
+%peer_streams = map.values()
+%    .filter(|s| s.is_some())
+%    .map(|s| s.unwrap())
+%    .map(|(addr, data_port)|
+%        TcpStream::connect(
+%            SocketAddr::new(addr, data_port)))
+%    .filter(|s| s.is_ok())
+%    .map(|s| s.unwrap())
+%    .collect();
+%\end{minted}
+%\end{frame}
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
