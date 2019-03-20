@@ -24,10 +24,10 @@
 \newcommand\sep{\textcolor{lightgrey}{\rule{\linewidth}{0.05mm}}}
 
 % Meta
-\title{Thread pools and iterators}
+\title{Parallel Programming with Thread pools and iterators}
 \date{\today}
 \author{Stefan Schindler (@dns2utf8)}
-\institute{Rust Zürichsee, Schweiz CH - @Cosin 2018}
+\institute{Rust Zürichsee, Schweiz, CH - hosted by Cloud Solutions Amsterdam, NL}
 
 \begin{document}
 
@@ -40,7 +40,7 @@
 % ----------------------------------------------------------------- %
 
 \begin{frame}[plain,noframenumbering]
-	\frametitle{Inhalt}
+	\frametitle{Index}
 	\setcounter{tocdepth}{1}
 	\tableofcontents
 \end{frame}
@@ -51,35 +51,37 @@
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Über}
+\section{About me}
 }
 
-%\begin{frame}[fragile]{Timetable}
-%  \begin{itemize}
-%    \item now => Talk
-%    \item 20:00 => Questions
-%    \item 20:10 => Happy hacking
-%    \item 21:00 => Closing
-%    \item tomorrow => ???
-%    \item the day after => Parallelize the World!
-%  \end{itemize}
-%\end{frame}
+\begin{frame}[fragile]{Timetable}
+  \begin{itemize}
+    \item 18:30 => Venue opens, pizza's arrive
+    \item now => Talk Stefan: Parallel Programming with Rust
+    \item 19:30 => Break
+    \item 19:45 => Maarten: How to speed up your builds with Bazel
+    \item 20:15 => Discussions
+    \item 21:00 => Venue closes
+    \item tomorrow => ???
+    \item the day after => parallelize the World!
+  \end{itemize}
+\end{frame}
 % timetable
 
 
 \begin{frame}[fragile]{About:me}
-Hallo mein Name ist Stefan und I arbeite an und mit Computern.
+Hello my name is Stefan and I work on and with computers.
 
-Ich organisier
+I organize
 \begin{itemize}
-  \item RustFest.eu Paris: 26. \& 27. May mit "impl days" am 28. \& 29. May
-  \item Meetups in und um Zürich
-  \item Illuminox.ch (in den Schweizer Alpen Juli 2018)
+  \item RustFest.eu Paris: 26. \& 27. May fixme "impl days" am 28. \& 29. May
+  \item Meetups in and around Zürich, CH
+  \item ErnstEisprung.ch (in de Zwitserse Alpen Juli 2019)
 \end{itemize}
 
-Ein paar von meinen Nebenprojekten
+Some of my side projects
 \begin{itemize}
-  \item rust threadpool
+  \item rust threadpool (maintainer)
   \item Son of Grid Engine (SGE) interface
   \item run your own infrastructure - DNS, VPN, Web, ...
 \end{itemize}
@@ -87,43 +89,43 @@ Ein paar von meinen Nebenprojekten
 
 
 
-\begin{frame}[fragile]{Was wir heute lernen werden}
+\begin{frame}[fragile]{What will we learn tonight?}
 
 \begin{itemize}
- \item Schleifen
- \item Iteratoren
- \item Verschiedene Ausführungsmodi
+ \item Loops
+ \item Iterators
+ \item Different modes of execution
  \item Single vs. Multi Threading
- \item Wie man Pools synchronisiert
- \item Wie man linearen Code in parallelen überführt
+ \item How to synchronize pools
+ \item Hot to translate linear into parallel code
 \end{itemize}
 
 \end{frame}
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Schleifen}
+\section{Loops}
 }
 
-\begin{frame}[fragile]{Schleifen 0 - Was bisher geschah}
+\begin{frame}[fragile]{Loops 0 - What happened so far}
 \begin{minted}{C}
 const char *data[] = { "Peter Arbeitsloser", ... };
 
   const int length = sizeof(data) / sizeof(data[0]);
   int index = 0;
-kopf:
+head:
   if (!(index < length)) {
-    goto ende;
+    goto end;
   }
   const char *name = data[index];
   printf("%i: %s\n", index, name);
   index += 1;
-  goto kopf;
-ende:
+  goto head;
+end:
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Schleifen 1 - Was verbessert wurde}
+\begin{frame}[fragile]{Loops 1 - What improved}
 \begin{minted}{C}
 const char *data[] = {
     "Peter Arbeitsloser",
@@ -133,15 +135,15 @@ const char *data[] = {
 
   const int length = sizeof(data) / sizeof(data[0]);
 
-  for (int index = 0; index < length; index++) {
+  for (int index = 0; index < length; ++index) {
     const char *name = data[index];
     printf("%i: %s\n", index, name);
   }
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Schleifen 2}
-Die Ausgangslage der folgenden Beispiele:
+\begin{frame}[fragile]{Loops 2 - What happens in rust}
+For the following slides keep this in mind:
 
 \begin{minted}{rust}
 #[allow(non_upper_case_globals)]
@@ -153,7 +155,7 @@ const data: [&str; 3] = [
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Schleifen 3 - While}
+\begin{frame}[fragile]{Loops 3 - While}
 \begin{minted}{rust}
     let mut index = 0;
     let length = data.len();
@@ -164,27 +166,47 @@ const data: [&str; 3] = [
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Schleifen 4 - foreach}
+\begin{frame}[fragile]{Loops 4 - For each}
 \begin{minted}{rust}
     for name in &data {
         println!("{}", name);
     }
+\end{minted}
+
+Note the \textbf{\&} next to \texttt{data}.
+\end{frame}
+
+\begin{frame}[fragile]{Loops 5 - Iterator}
+\begin{minted}{rust}
+    for name in data.iter() {
+        println!("{}", name);
+    }
+\end{minted}
+
+If we prefer a more functional style:
+\begin{minted}{rust}
+    let iterator = data.iter();
+    iterator.for_each(|name| {
+        println!("{}", name);
+    });
 \end{minted}
 \end{frame}
 
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Iteratoren}
+\section{Iterators}
 }
 
 \begin{frame}[fragile]{Trait Iterator}
 \begin{minted}{rust}
+    // std::iter::Iterator
     pub trait Iterator {
         type Item;
         fn next(&mut self) -> Option<Self::Item>;
     }
 
+    // For reference std::option::Option
     pub enum Option<T> {
         None,
         Some(T),
@@ -192,7 +214,7 @@ const data: [&str; 3] = [
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Iteratoren 0}
+\begin{frame}[fragile]{Iterators 0}
 \begin{minted}{rust}
     let iterator = data.iter();
     iterator.for_each(|name| {
@@ -201,31 +223,38 @@ const data: [&str; 3] = [
 \end{minted}
 
 \begin{itemize}
- \item Warum?
- \item Vorteile für
+ \item Why?
+ \item Pros for
     \begin{itemize}
-     \item Programmierer
-     \item Compiler
+     \item People programming (filters, maps, maintainability, ...)
+     \item Compiler (optimizations, early returns, edge cases, ...)
     \end{itemize}
 \end{itemize}
+
+\textbf{Video (32min):} RustFest Rome 2018 - Pascal Hertleif: Declarative programming in Rust
+\begin{itemize}
+  \item \href{https://media.ccc.de/v/rustfest-rome-5-declarative-programming-in-rust}{media.ccc.de/v/rustfest-rome-5-declarative-programming-in-rust}
+  \item \href{https://www.youtube.com/watch?v=0W20GPEqbcU}{youtube.com/watch?v=0W20GPEqbcU}
+\end{itemize}
+
 \end{frame}
 
 
 
-\begin{frame}[fragile]{Iteratoren 1 - Parsen}
+\begin{frame}[fragile]{Iterators 1 - Parsing without panic}
 \begin{minted}{rust}
-struct Person { vorname: String, nachname: String, }
+struct Person { first_name: String, surname: String, }
 let processed = data
         .iter()
         .map(|name| {
             let mut split = name.split(" ");
-let (vorname, nachname) = (split.next(), split.next());
-if vorname.is_none() || nachname.is_none() {
-    return Err("Konnte namen nicht parsen: Zu wenige Teile")
+let (first_name, surname) = (split.next(), split.next());
+if first_name.is_none() || surname.is_none() {
+    return Err("Unable to parse: to few parts")
 }
             Ok(Person {
-                vorname: vorname.unwrap().into(),
-                nachname: nachname.unwrap().into(),
+                first_name: first_name.unwrap().into(),
+                surname: surname.unwrap().into(),
             })
         })
         .collect::<Result<Vec<_>, _>>();
@@ -233,43 +262,43 @@ if vorname.is_none() || nachname.is_none() {
 \end{frame}
 
 
-\begin{frame}[fragile]{Iteratoren 2 - Parsen}
+\begin{frame}[fragile]{Iterators 2 - Parsing without panic}
 \begin{minted}{rust}
-struct Person { vorname: String, nachname: String, }
+struct Person { first_name: String, surname: String, }
 let processed = data.iter()
         .map(|name| {
             let mut split = name.split(" ");
-let (vorname, nachname) = (split.next(), split.next());
-match (vorname, nachname) {
-    (Some(vorname), Some(nachname)) => {
+let (first_name, surname) = (split.next(), split.next());
+match (first_name, surname) {
+    (Some(first_name), Some(surname)) => {
         Ok(Person {
-            vorname: vorname.into(), nachname: nachname.into(),
+            first_name: first_name.into(), surname: surname.into(),
         })
     }
-    _ => { Err("Konnte namen nicht parsen: Zu wenige Teile") }
+    _ => { Err("Unable to parse: to few parts") }
 }
         })
-        .collect::<Result<Vec<_>, _>>();
+        .collect::<Result<Vec<_>, _>>(); // <- magic happened
 \end{minted}
 \end{frame}
 
 
 
-\begin{frame}[fragile]{Iteratoren 3 - Parsen Ergebnis}
+\begin{frame}[fragile]{Iterators 3 - "processed: \{:\#?\}"}
 \begin{minted}{rust}
 processed: Ok(
     [
         Person {
-            vorname: "Peter",
-            nachname: "Arbeitsloser"
+            first_name: "Peter",
+            surname: "Arbeitsloser"
         },
         Person {
-            vorname: "Sandra",
-            nachname: "Systemadministratorin"
+            first_name: "Sandra",
+            surname: "Systemadministratorin"
         },
         Person {
-            vorname: "Peter",
-            nachname: "Koch"
+            first_name: "Peter",
+            surname: "Koch"
         }
     ]
 )
@@ -280,47 +309,47 @@ processed: Ok(
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Verschiedene Ausführungsmodi}
+\section{Modes of Execution}
 }
 
-\begin{frame}[fragile]{Programmieren ist ...}
-... ein Weg Probleme zu lösen
+\begin{frame}[fragile]{Programming is ...}
+... about solving problems
 
-Beispiele:
+Examples:
 \begin{itemize}
-  \item Daten kopieren
-  \item Audio verbessern
-  \item Nachrichten verteilen
-  \item Daten speichern
-  \item Bilder transformieren
+  \item Copy data
+  \item Enhance audio
+  \item Distribute messages
+  \item Store data
+  \item Prepare thumbnails
 \end{itemize}
 
-Der Schlüssel ist das Problem zu verstehen
+Key is understanding the problem
 \end{frame}
 
-\begin{frame}[fragile]{Single thread - Lineare Ausführung}
-Wie erledigen wir mehr als eine Aufgabe gleichzeitig?
+\begin{frame}[fragile]{Single thread - Linear Execution}
+How to do more than one thing at the time?
 
 \begin{itemize}
-  \item Linear wenn die Aufgaben kurz genug sind
+  \item Linear if tasks are short enough
   \item Polling
-  \item Event getrieben (select/epoll)
+  \item Event driven (select/epoll or interrupt)
   \item Hardware SIMD
 \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Multi Threading - SMP}
+\begin{frame}[fragile]{Simultaneous Multi Threading - SMP}
 Let's add another level of abstraction
 \begin{itemize}
-  \item spawn / join: verwalte Listen von JoinHandles
-  \item Pools \begin{itemize}
-      \item Job Queue (heute das Thema)
-      \item Workstealing (rayon)
-      \item futures (async / await)
+  \item spawn / join: handle lists of JoinHandles
+  \item pools \begin{itemize}
+      \item job queue (threadpool)
+      \item Work stealing (rayon)
+      \item futures (tokio or async/await)
     \end{itemize}
 \end{itemize}
 
-Neue Probleme: Synchronisation und Kommunikation
+New problems: synchronization and communication
 
 \end{frame}
 
@@ -335,38 +364,37 @@ Rusts "pick three" (safety, speed, concurrency)
 \begin{minted}{rust}
 Trait std::marker::Send
 \end{minted}
-Typeen können über Thread-Grenzen transferiert werden.
+Types that can be transferred across thread boundaries.
 
 \begin{minted}{rust}
 Trait std::marker::Sync
 \end{minted}
-Typeen können sicher von mehreren Threads referenziert und aufgerufen werden.
+Types for which it is safe to share references between threads.
 
 \end{frame}
 
 \begin{frame}[fragile]{Crates}
-Let's add another level of abstraction
+Let's reuse that level of abstraction
 \begin{itemize}
   \item std::thread::{spawn, join}
   \item pools \begin{itemize}
       \item ThreadPool (Job Queue)
-      \item FuturesThreadPool (Workstealing)
+      \item FuturesThreadPool (Work stealing)
     \end{itemize}
-  \item rayon (Workstealing)
+  \item rayon (Work stealing)
   \item timely dataflow (distributed actor model)
 \end{itemize}
 
-Neue Probleme: Synchronisation, Kommunikation und Besitzrecht
+New problems: synchronization and communication
 
 \end{frame}
 
-\begin{frame}[fragile]{Channel Beispiel}
+\begin{frame}[fragile]{Channel example}
 \begin{minted}{rust}
 use threadpool::ThreadPool; use std::sync::mpsc::channel;
-
 let n_workers = 4; let n_jobs = 8;
-let pool = ThreadPool::new(n_workers);
 
+let pool = ThreadPool::new(n_workers);
 let (tx, rx) = channel();
 for _ in 0..n_jobs {
     let tx = tx.clone();
@@ -374,13 +402,14 @@ for _ in 0..n_jobs {
         tx.send(1).expect("channel will be there");
     });
 }
-drop(tx);
+drop(tx); // <- Why?
 
-assert_eq!(rx.iter().take(n_jobs).fold(0, |a, b| a + b), 8);
+assert_eq!(rx.iter() /*.take(n_jobs)*/ .sum()
+    , /* n_jobs = */ 8);
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Channel Kaskade Beispiel}
+\begin{frame}[fragile]{Channel cascade example}
 \begin{minted}{rust}
 let (tx, mut rx) = channel();
 tx.send( (0, 0) ).is_ok();
@@ -390,7 +419,7 @@ for _ in 0..TEST_TASKS {
     rx = rx_chain;
 
     pool.execute(move || {
-        let r = pi_approx_random(VERSUCHE as u64
+        let r = pi_approx_random(TRIES as u64
                                 , rand::random::<f64>);
         let b = rx_pre.recv().unwrap();
         tx_chain.send( (b.0 + r.0, b.1 + r.1) ).is_ok();
@@ -404,80 +433,102 @@ println!("chain.pi: {}", format_pi_approx(rx.recv().unwrap()));
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Schema: Schleifen zu Iteratoren}
+\section{Receipt: from Loops to Iterators}
 }
-\begin{frame}[fragile]{Collect von Channnel - 0}
-v\_len speichert wie viele Elemente wir erwarten
+\begin{frame}[fragile]{Collect from Channel - 0}
+\texttt{v\_len} holds the number of elements we expect
 \begin{minted}{rust}
   let mut pictures = vec![];
 
   for _ in 0..v_len {
     if let Some(pi) = rx.recv().unwrap() {
-      pictures.push( pi );
+        pictures.push( pi );
     } else {
-      // Abbruch wegen einem Fehler
-      return;
+        // Abort because of error
+        return;
     }
   }
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect von Channnel - 1}
-Mit foreach brauchen wir die Länge nicht mehr
+\begin{frame}[fragile]{Collect from Channel - 1}
+With \texttt{iter()} we don't need to know the length anymore
 \begin{minted}{rust}
   let mut pictures = vec![];
 
   for pi in rx.iter() {
     if let Some(pi) = pi {
-      pictures.push( pi );
+        pictures.push( pi );
     } else {
-      // Abbruch wegen einem Fehler
-      return;
+        // Abort because of error
+        return;
     }
   }
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect von Channnel - 2}
-Mit for\_each brauchen wir die Länge nicht mehr
+\begin{frame}[fragile]{Collect from Channel - 2}
+With \texttt{for\_each(...)} we don't need to know the length anymore
 \begin{minted}{rust}
   let mut pictures = vec![];
 
   rx.iter().for_each(|pi| {
     if let Some(pi) = pi {
-      pictures.push( pi );
+        pictures.push( pi );
     } else {
-      // Abbruch wegen einem Fehler
-      return;
+        // Abort because of error
+        return;
     }
   });
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect von Channnel - 3}
+\begin{frame}[fragile]{Collect from Channel - 3}
+Use \texttt{map} and \texttt{collect}
 \begin{minted}{rust}
   let pictures = rx.iter().map(|pi| {
-    if let Some(pi) = pi {
-      Ok( pi )
-    } else {
-      // Abbruch wegen einem Fehler
-      Err( () )
-    }
-  }).collect::<Result<Vec<PictureInfo>, ()>>().unwrap();
+        if let Some(pi) = pi {
+            Ok( pi )
+        } else {
+            // Abort because of error
+            println("our custom error message");
+            Err( () )
+        }
+    })
+    .collect::<Result<Vec<PictureInfo>, ()>>()
+    .unwrap();
 \end{minted}
 \end{frame}
 
-\begin{frame}[fragile]{Collect von Channnel - 4}
-Parallelisiert mit rayon
+\begin{frame}[fragile]{Collect from Channel - 4}
+Move the error message out
+\begin{minted}{rust}
+  let pictures = rx.iter().map(|pi| {
+        if let Some(pi) = pi {
+            Ok( pi )
+        } else {
+            // Abort because of error
+            Err("our custom error message")
+        }
+    })
+    .collect::<Result<Vec<PictureInfo>, ()>>()
+    .expect("unable to iterate trough pictures");
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Collect from Channel - 5}
+Parallelize with \texttt{rayon}
 \begin{minted}{rust}
   let pictures = rx.par_iter().map(|pi| {
-    if let Some(pi) = pi {
-      Ok( pi )
-    } else {
-      // Abbruch wegen einem Fehler
-      Err( () )
-    }
-  }).collect::<Result<Vec<PictureInfo>, ()>>().unwrap();
+        if let Some(pi) = pi {
+            Ok( pi )
+        } else {
+            // Abort because of error
+            Err("our custom error message")
+        }
+    })
+    .collect::<Result<Vec<PictureInfo>, ()>>()
+    .expect("unable to iterate trough pictures");
 \end{minted}
 \end{frame}
 
@@ -534,40 +585,13 @@ Parallelisiert mit rayon
 
 {
 \usebackgroundtemplate{\pgfuseimage{bgdark}}
-\section{Fragen}
+\section{Questions}
 }
 
 %{
 %\usebackgroundtemplate{\pgfuseimage{bgdark}}
 %\section{Workshop time}
 %}
-
-
-
-%\begin{frame}[fragile]{Warum noch eine Sprache?}
-%  \begin{itemize}
-%    \item Es ist schwer sicheren und korrekten Code zu schreiben.
-%    \item Es ist schwierig parallelen Code zu schreiben.
-%  \end{itemize}
-%
-%\begin{minted}{C}
-%char *pi = "3.1415926f32";
-%while(1) {
-%    printf("wie vielte Stelle? ");  err = scanf("%d", &stelle);
-%
-%    if (err == 0 || errno != 0) {
-%      printf("invalid entry\n");    while (getchar() != '\n');
-%      continue;
-%    }
-%
-%    printf("Eingabe: %d\n", stelle);
-%    printf("Gewünschte Stelle: '%c'\n", pi[stelle]);
-%}
-%\end{minted}
-%\end{frame}
-
-
-
 
 
 % ----------------------------------------------------------------- %
@@ -578,13 +602,60 @@ Parallelisiert mit rayon
 \usebackgroundtemplate{\pgfuseimage{bg}}
 \begin{frame}[standout]
 	\begin{centering}
-	{\Huge Danke für eure Aufmerksamkeit!}\\
+	{\Huge Thank you for your attention!}\\
 	{\normalsize Stefan Schindler @dns2utf8 }\\
-  {\normalsize Happy hacking! Bitte fragt Fragen! }\\
-	{\footnotesize Folien \& Beispiele: \url{https://github.com/dns2utf8/thread-pools-and-iterators}}\\
-	%{\footnotesize Examples: \url{https://github.com/coredump-ch/intro-to-rust/tree/master/examples}}\\
+  {\normalsize Happy hacking! Please ask questions! }\\
+	{\footnotesize slides \& Examples: \url{https://github.com/dns2utf8/thread-pools-and-iterators}}\\
 	\end{centering}
 \end{frame}
 }
+
+
+% ----------------------------------------------------------------- %
+
+\pgfdeclareimage[width=\paperwidth]{bg}{background.pdf}
+
+\begin{frame}[fragile]{Why another language? - 0}
+  \begin{itemize}
+    \item It is hard to write safe and correct code.
+    \item Even harder to write correct parallel code.
+  \end{itemize}
+
+\begin{minted}{C}
+char *pi = "3.1415926f32";
+while(1) {
+    printf("Nth number? ");  err = scanf("%d", &nth);
+
+    if (err == 0 || errno != 0) {
+      printf("invalid entry\n");    while (getchar() != '\n');
+      continue;
+    }
+
+    printf("Input: %d\n", nth);
+    printf("Gewünschte Stelle: '%c'\n", pi[nth]);
+}
+\end{minted}
+\end{frame}
+
+
+\begin{frame}[fragile]{Why another language? - 1}
+\begin{minted}{rust}
+let pi = "3.1415926f32";
+loop {
+    print!("Nth number? ");
+    io::stdout().flush().unwrap(); // force display on terminal
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_bytes_read) => {
+            let nth: usize = input.trim().parse()
+                                  .expect("invalid selection");
+            println!("{}-th: '{:?}'", nth, pi.chars().nth(nth));
+        }
+        Err(error) => println!("error: {}", error),
+    }
+}
+\end{minted}
+\end{frame}
+
 
 \end{document}

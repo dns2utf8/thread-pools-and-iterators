@@ -39,6 +39,12 @@ fn foreach() {
 fn iterator() {
     title("iterator");
 
+    for name in data.iter() {
+        println!("{}", name);
+    }
+
+    println!("\n : functional :");
+
     let iterator = data.iter();
     iterator.for_each(|name| {
         println!("{}", name);
