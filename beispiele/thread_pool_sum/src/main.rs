@@ -18,7 +18,7 @@ fn main() {
     assert_eq!(
         rx.iter()
             //.take(n_jobs)
-            .sum(),
+            .sum::<usize>(),
         8 // n_jobs
     );
 }
